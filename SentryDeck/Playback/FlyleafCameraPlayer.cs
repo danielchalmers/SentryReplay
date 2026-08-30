@@ -17,10 +17,10 @@ internal sealed class FlyleafCameraPlayer : ICameraPlayer
     private bool _isOpen;
     private bool _isStopping;
 
-    public FlyleafCameraPlayer(FlyleafHost host, bool audioEnabled)
+    public FlyleafCameraPlayer(FlyleafHost host)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
-        _player = new Player(CreateConfig(audioEnabled));
+        _player = new Player(CreateConfig());
 
         // All shortcuts are app-wide and act on every camera at once; Flyleaf's default bindings (space, arrows, …) would pause/seek only the player whose surface has focus.
         // Must run AFTER the Player ctor: KeysConfig.SetPlayer force-loads the defaults into any empty binding list, so clearing the config up front is undone (and RemoveAll on a fresh config NREs, since Keys is null until SetPlayer runs).
@@ -67,7 +67,7 @@ internal sealed class FlyleafCameraPlayer : ICameraPlayer
                 path,
                 defaultPlaylistItem: true,
                 defaultVideo: true,
-                defaultAudio: _player.Config.Audio.Enabled,
+                defaultAudio: false,
                 defaultSubtitles: false,
                 forceSubtitles: false));
 
@@ -196,7 +196,14 @@ internal sealed class FlyleafCameraPlayer : ICameraPlayer
         _player.Dispose();
     }
 
-    private static Config CreateConfig(bool audioEnabled)
+    /// <summary>
+    /// Audio is disabled on every camera, so a clip that carries an audio track is opened video-only.
+    /// Dashcam recordings have no audio, the app exposes no volume or mute control, and four to six players sharing one timeline would each render their own copy of any track that did turn up.
+    /// It also keeps the app clear of FlyleafLib 3.11's audio filter graph, which has two defects this app would otherwise have to work around: under LoadProfile.Main the audio decoder's static constructor dies on the missing avfilter and drops that camera to roughly an eighth of real-time playback, and a speed change overlapping a seek wedges the seek thread inside avfilter_graph_free and freezes the UI thread behind it.
+    /// Turning audio back on means dealing with both again, and moving FlyleafRuntime to LoadProfile.Filters at the same time.
+    /// Trimmed exports are unaffected: ClipExporter stream-copies whatever the source holds, audio included.
+    /// </summary>
+    private static Config CreateConfig()
     {
         var config = new Config
         {
@@ -211,7 +218,7 @@ internal sealed class FlyleafCameraPlayer : ICameraPlayer
             },
             Audio =
             {
-                Enabled = audioEnabled,
+                Enabled = false,
             },
             Subtitles =
             {

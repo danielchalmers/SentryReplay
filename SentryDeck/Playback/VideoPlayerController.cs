@@ -126,7 +126,7 @@ public sealed partial class VideoPlayerController : ObservableObject, IDisposabl
 
     /// <summary>
     /// Creates the app's Flyleaf-backed playback controller from one surface per camera.
-    /// The primary camera (front when present) drives the timeline and owns the audio track.
+    /// The primary camera (front when present) drives the timeline; playback is video-only on every camera.
     /// </summary>
     public static VideoPlayerController Create(IReadOnlyList<(string Camera, FlyleafHost Host)> cameras)
     {
@@ -143,7 +143,7 @@ public sealed partial class VideoPlayerController : ObservableObject, IDisposabl
 
         var players = cameras.ToDictionary(
             camera => camera.Camera,
-            camera => (ICameraPlayer)new FlyleafCameraPlayer(camera.Host, audioEnabled: camera.Camera == primaryCamera));
+            camera => (ICameraPlayer)new FlyleafCameraPlayer(camera.Host));
 
         return new VideoPlayerController(players, primaryCamera);
     }

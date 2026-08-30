@@ -32,6 +32,10 @@ public sealed class FlyleafRuntime
             Engine.Start(new EngineConfig
             {
                 FFmpegPath = directory,
+
+                // Main leaves avfilter unloaded, which is only safe because FlyleafCameraPlayer disables audio on every player.
+                // FlyleafLib 3.11.1 routes all audio through an avfilter graph, so one audio-enabled player opening a clip that has an audio track would die in the audio decoder's static constructor and drop that camera to a fraction of real-time playback, silently.
+                // Turning audio back on means moving to LoadProfile.Filters at the same time.
                 FFmpegLoadProfile = LoadProfile.Main,
                 FFmpegLogLevel = Flyleaf.FFmpeg.LogLevel.Warn,
                 LogLevel = FlyleafLib.LogLevel.Warn,
