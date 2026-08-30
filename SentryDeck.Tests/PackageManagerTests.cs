@@ -83,6 +83,42 @@ public sealed class PackageManagerTests : IDisposable
     }
 
     [Fact]
+    public void RemoveSupersededFFmpegDirectories_DeletesOtherBranchesAndKeepsTheCurrentOne()
+    {
+        // Each FFmpeg release branch installs into a folder of its own, so bumping the branch strands the previous build (about 200 MB unpacked) next to the app with nothing that will ever load it again.
+        var installRoot = Directory.CreateDirectory(Path.Combine(_root, "install")).FullName;
+        Directory.CreateDirectory(Path.Combine(installRoot, "ffmpeg-9.0-bin"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "ffmpeg-8.1-bin"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "ffmpeg-7.1-bin"));
+        File.WriteAllText(Path.Combine(installRoot, "ffmpeg-8.1-bin", "avcodec-62.dll"), "stale");
+
+        var removed = PackageManager.RemoveSupersededFFmpegDirectories(installRoot, "ffmpeg-9.0-bin");
+
+        removed.ShouldBe(2);
+        Directory.Exists(Path.Combine(installRoot, "ffmpeg-9.0-bin")).ShouldBeTrue();
+        Directory.Exists(Path.Combine(installRoot, "ffmpeg-8.1-bin")).ShouldBeFalse();
+        Directory.Exists(Path.Combine(installRoot, "ffmpeg-7.1-bin")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void RemoveSupersededFFmpegDirectories_LeavesEverythingElseAlone()
+    {
+        // The install root is the app's own folder, so the match has to stay narrow enough that nothing but an FFmpeg install can ever be caught by it.
+        var installRoot = Directory.CreateDirectory(Path.Combine(_root, "install")).FullName;
+        Directory.CreateDirectory(Path.Combine(installRoot, "ffmpeg-9.0-bin"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "logs"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "ffmpeg-notes"));
+        Directory.CreateDirectory(Path.Combine(installRoot, "runtimes"));
+
+        var removed = PackageManager.RemoveSupersededFFmpegDirectories(installRoot, "ffmpeg-9.0-bin");
+
+        removed.ShouldBe(0);
+        Directory.Exists(Path.Combine(installRoot, "logs")).ShouldBeTrue();
+        Directory.Exists(Path.Combine(installRoot, "ffmpeg-notes")).ShouldBeTrue();
+        Directory.Exists(Path.Combine(installRoot, "runtimes")).ShouldBeTrue();
+    }
+
+    [Fact]
     public void ExtractFFmpegBin_ClearsAnExistingDestination()
     {
         // A leftover DLL from an earlier FFmpeg release must not survive alongside the new ones; Flyleaf loads whatever is in this folder and a mixed set fails at load time.
