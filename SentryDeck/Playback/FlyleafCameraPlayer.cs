@@ -168,7 +168,9 @@ internal sealed class FlyleafCameraPlayer : ICameraPlayer
             else
             {
                 // Do NOT "simplify" this back to Flyleaf's ShowFramePrev.
-                // On our ffconcat (FFmpeg concat demuxer) playlists it is a silent no-op -- CurTime never moves, nothing throws -- and it poisons the decoder so the NEXT ShowFrameNext jumps ahead by 0.5s+ instead of one frame (verified against real footage, 2026-07).
+                // On our ffconcat (FFmpeg concat demuxer) playlists it is a silent no-op -- CurTime never moves, nothing throws -- and on FlyleafLib 3.10.4 it also poisoned the decoder so the NEXT ShowFrameNext jumped ahead by 0.5s+ instead of one frame (verified against real footage, 2026-07).
+                // Re-measured on 3.11.3 after its seek and frame-stepping lock fix (2026-08): the poisoning is gone, and a following ShowFrameNext advances exactly one frame again, but the backward step itself still moved 0 of 8 attempts on footage with no audio track, which is the footage this app opens.
+                // It does step correctly on 3.11.3 when the media happens to carry an audio track, so a quick test on the wrong sample file will suggest this workaround is unnecessary; it is not.
                 // Backward stepping is therefore a small accurate seek: one frame duration back, padded by a PTS-rounding guard so the seek reliably presents the PREVIOUS frame rather than re-presenting the current one.
                 // Accurate seeks are proven reliable on these playlists, including while paused.
                 var fps = _player.Video?.FPS ?? 0;
