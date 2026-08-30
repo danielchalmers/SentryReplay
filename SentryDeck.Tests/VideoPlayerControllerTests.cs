@@ -436,6 +436,59 @@ public sealed partial class VideoPlayerControllerTests
     }
 
     [Fact]
+    public async Task PlayAsync_WhenTheClipEndsDuringTheCall_DoesNotReportPlaying()
+    {
+        using var clipFiles = TestClipFiles.Create(chunkCount: 2);
+        var front = new FakeCameraPlayer();
+        using var controller = CreateController(front);
+
+        controller.LoadClips([clipFiles.Clip]);
+        controller.Playlist.MoveTo(0);
+        await WaitUntilClipOpenedAsync(controller, front);
+
+        await controller.PauseAsync();
+        var duration = controller.Duration;
+
+        // Play pressed near the end, or queued behind a slow open: the clip runs out while the play operation is still in flight.
+        // The Ended handler clears IsPlaying, and the play call must not then set it back, or the transport claims to be playing a clip parked on its last frame until the user presses something else.
+        front.PlayCallback = () =>
+        {
+            front.PlayCallback = null;
+            front.RaisePositionChanged(duration);
+            front.RaiseEnded();
+        };
+
+        await controller.PlayAsync();
+
+        await Wait.UntilAsync(() => controller.Position == duration);
+        controller.IsPlaying.ShouldBeFalse();
+        controller.Position.ShouldBe(duration);
+        // The clip is finished, not broken: the media stays open so the scrubber and frame-step still work.
+        controller.IsMediaOpen.ShouldBeTrue();
+        controller.ErrorMessage.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task PlayAsync_WhenTheClipKeepsPlaying_ReportsPlaying()
+    {
+        using var clipFiles = TestClipFiles.Create(chunkCount: 2);
+        var front = new FakeCameraPlayer();
+        using var controller = CreateController(front);
+
+        controller.LoadClips([clipFiles.Clip]);
+        controller.Playlist.MoveTo(0);
+        await WaitUntilClipOpenedAsync(controller, front);
+
+        await controller.PauseAsync();
+        controller.IsPlaying.ShouldBeFalse();
+
+        // The guard above must only suppress the state a finished clip already settled; an ordinary resume still reports playback.
+        await controller.PlayAsync();
+
+        controller.IsPlaying.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task FrontMediaEnded_WithNextClip_StaysOnCurrentClipWithoutAdvancing()
     {
         using var firstClipFiles = TestClipFiles.Create(chunkCount: 2);

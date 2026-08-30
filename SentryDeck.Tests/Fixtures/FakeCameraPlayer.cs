@@ -67,10 +67,17 @@ internal sealed class FakeCameraPlayer : ICameraPlayer
         return OpenResult;
     }
 
+    /// <summary>
+    /// Optional hook invoked synchronously inside <see cref="PlayAsync"/>, mirroring <see cref="SeekCallback"/>.
+    /// Lets a test make the clip end while a play operation is still in flight, which is the ordering that used to leave the controller reporting playback on a finished clip.
+    /// </summary>
+    public Action PlayCallback { get; set; }
+
     public Task PlayAsync()
     {
         PlayCount++;
         CallLog.Add("play");
+        PlayCallback?.Invoke();
         return Task.CompletedTask;
     }
 
