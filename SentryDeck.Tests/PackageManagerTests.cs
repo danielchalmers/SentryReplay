@@ -5,7 +5,7 @@ namespace SentryDeck.Tests;
 
 public sealed class PackageManagerTests : IDisposable
 {
-    private const string ArchiveRoot = "ffmpeg-n8.1-latest-win64-gpl-shared-8.1";
+    private const string ArchiveRoot = "ffmpeg-n9.0-latest-win64-gpl-shared-9.0";
 
     private readonly string _root = Directory.CreateDirectory(
         Path.Combine(Path.GetTempPath(), $"SentryDeckTests-{Guid.NewGuid():N}")).FullName;

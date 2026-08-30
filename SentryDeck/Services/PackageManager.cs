@@ -11,7 +11,7 @@ namespace SentryDeck;
 /// </summary>
 public static class PackageManager
 {
-    private const string FFmpegReleaseBranch = "8.1";
+    private const string FFmpegReleaseBranch = "9.0";
     private static readonly string FFmpegBinFolderName = $"ffmpeg-{FFmpegReleaseBranch}-bin";
 
     private static string FFmpegInstallRoot => AppContext.BaseDirectory;

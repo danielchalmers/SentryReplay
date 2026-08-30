@@ -1893,7 +1893,7 @@
                             <!--  Playback notes  -->
                             <TextBlock Text="Playback notes"
                                        Style="{StaticResource AboutSectionHeader}" />
-                            <TextBlock Text="FFmpeg 8.1 shared binaries are required for playback. Use the Download FFmpeg button when prompted."
+                            <TextBlock Text="FFmpeg 9.0 shared binaries are required for playback. Use the Download FFmpeg button when prompted."
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" />
                             <TextBlock Text="If clips do not appear, confirm the folder contains a TeslaCam directory."
