@@ -11,7 +11,7 @@ namespace SentryDeck;
 /// </summary>
 public static class PackageManager
 {
-    private const string FFmpegReleaseBranch = "8.1";
+    private const string FFmpegReleaseBranch = "9.0";
     private static readonly string FFmpegBinFolderName = $"ffmpeg-{FFmpegReleaseBranch}-bin";
 
     private static string FFmpegInstallRoot => AppContext.BaseDirectory;
@@ -125,6 +125,8 @@ public static class PackageManager
                 destinationBinPath,
                 extractedFileCount,
                 stopwatch.ElapsedMilliseconds);
+
+            RemoveSupersededFFmpegDirectories(FFmpegInstallRoot, FFmpegBinFolderName);
         }
         finally
         {
@@ -133,6 +135,38 @@ public static class PackageManager
                 File.Delete(tempPath);
             }
         }
+    }
+
+    /// <summary>
+    /// Deletes FFmpeg folders left behind by earlier release branches.
+    /// Every branch installs into a folder of its own next to the app, so an upgrade otherwise leaves the previous build (about 200 MB unpacked) sitting there forever with nothing that will ever load it again.
+    /// Only runs after a successful install, and a folder that refuses to delete is logged rather than failing the install: the new binaries are already in place and usable.
+    /// </summary>
+    internal static int RemoveSupersededFFmpegDirectories(string installRoot, string currentBinFolderName)
+    {
+        var removedCount = 0;
+
+        // Materialized before the first delete: enumerating a directory while removing entries from it is not something to rely on.
+        foreach (var directory in Directory.GetDirectories(installRoot, "ffmpeg-*-bin"))
+        {
+            if (string.Equals(Path.GetFileName(directory), currentBinFolderName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                removedCount++;
+                Log.Information("Removed superseded FFmpeg binaries. Directory={Directory}", directory);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(ex, "Failed to remove superseded FFmpeg binaries. Directory={Directory}", directory);
+            }
+        }
+
+        return removedCount;
     }
 
     /// <summary>
