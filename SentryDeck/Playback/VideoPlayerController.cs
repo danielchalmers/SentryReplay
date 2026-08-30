@@ -60,6 +60,9 @@ public sealed partial class VideoPlayerController : ObservableObject, IDisposabl
     private ClipMediaSource _openedMediaSource;
     private int _recoveryAttempts;
 
+    // Bumped every time playback ends on its own, so a play operation that is already in flight can tell that the clip finished underneath it.
+    private long _playbackEndedCount;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanPlayPause))]
     private bool _isLoading;
@@ -182,8 +185,16 @@ public sealed partial class VideoPlayerController : ObservableObject, IDisposabl
             {
                 if (IsMediaOpen && _openedClip == clip)
                 {
+                    // Snapshot before starting the players: a clip can reach its end while this operation is in flight, either because play was pressed close to the end or because the operation queued behind a slow open, and by the time it returns the Ended handler has already cleared IsPlaying.
+                    // Re-asserting it here would leave the transport claiming to play a clip parked on its last frame, and nothing clears that until the user presses something else.
+                    var endedCountBeforePlay = Interlocked.Read(ref _playbackEndedCount);
+
                     await PlayOpenPlayersAsync();
-                    IsPlaying = true;
+
+                    if (Interlocked.Read(ref _playbackEndedCount) == endedCountBeforePlay)
+                    {
+                        IsPlaying = true;
+                    }
                 }
             });
 
@@ -1013,6 +1024,7 @@ public sealed partial class VideoPlayerController : ObservableObject, IDisposabl
 
         var wasPlaying = IsPlaying;
         IsPlaying = false;
+        Interlocked.Increment(ref _playbackEndedCount);
 
         // Deliberately NOT gated on IsLoading: the front plays (and can end or die on a corrupt first chunk) while the secondary-camera joins are still in flight, and IsLoading stays true until that whole open completes.
         // The request-id check above already filters the transitions IsLoading used to guard (clip changes zero _currentMediaRequestId first).
